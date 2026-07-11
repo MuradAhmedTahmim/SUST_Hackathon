@@ -5,6 +5,9 @@ from django.db.models import Avg, Sum
 from django.utils import timezone
 
 from alerts.models import Alert
+from alerts.services import create_liquidity_alert
+from analytics.anomaly_detection import detect_repeated_amount_anomaly, detect_velocity_spike
+from analytics.forecasting import forecast_liquidity
 from analytics.models import LiquidityForecast
 from transactions.models import Transaction
 
@@ -58,14 +61,16 @@ def analyse_agent_provider(agent, provider):
         Decimal("0"),
     )
 
-    shortage_probability = calculate_shortage_probability(
-        projected_balance,
-        safety_threshold,
+    forecast_result = forecast_liquidity(
+        current_balance=float(balance_record.current_balance),
+        average_depletion_per_hour=float(predicted_demand / Decimal("2")),
+        forecast_hours=2,
+        safety_threshold=float(safety_threshold),
+        data_status=balance_record.data_status,
     )
 
-    confidence = calculate_confidence(
-        transactions.count()
-    )
+    shortage_probability = forecast_result.shortage_probability
+    confidence = forecast_result.confidence
 
     explanation = (
         f"Current balance is {balance_record.current_balance}. "
@@ -76,15 +81,13 @@ def analyse_agent_provider(agent, provider):
     )
 
     if shortage_amount > 0:
-        recommended_amount = shortage_amount * Decimal("1.20")
-
         recommendation = (
-            f"Transfer approximately {recommended_amount:.2f} "
-            f"to the {provider.name} balance."
+            "Verify the latest provider balance and contact the "
+            "authorized field officer to arrange approved liquidity support."
         )
     else:
         recommendation = (
-            f"No immediate {provider.name} transfer is required."
+            "No immediate action is required beyond routine monitoring."
         )
 
     forecast = LiquidityForecast.objects.create(
@@ -98,11 +101,7 @@ def analyse_agent_provider(agent, provider):
         safety_threshold=safety_threshold,
         shortage_probability=shortage_probability,
         confidence=confidence,
-        estimated_shortage_at=(
-            now + timedelta(hours=2)
-            if projected_balance < safety_threshold
-            else None
-        ),
+        estimated_shortage_at=forecast_result.estimated_shortage_at,
         explanation=explanation,
     )
 
@@ -113,13 +112,11 @@ def analyse_agent_provider(agent, provider):
 
     alert = None
 
-    if shortage_probability >= 50:
-        alert = create_alert(
+    if shortage_probability >= 0.5:
+        alert = create_liquidity_alert(
             agent=agent,
             provider=provider,
             forecast=forecast,
-            explanation=explanation,
-            recommendation=recommendation,
         )
 
     return {
@@ -139,7 +136,7 @@ def calculate_shortage_probability(
         return 0.0
 
     if projected_balance <= 0:
-        return 98.0
+        return 0.98
 
     if projected_balance < safety_threshold:
         shortage_ratio = (
@@ -147,57 +144,69 @@ def calculate_shortage_probability(
         ) / safety_threshold
 
         probability = (
-            Decimal("65")
-            + shortage_ratio * Decimal("30")
+            Decimal("0.65")
+            + shortage_ratio * Decimal("0.30")
         )
 
         return float(
-            min(probability, Decimal("95"))
+            min(probability, Decimal("0.95"))
         )
 
-    return 15.0
+    return 0.15
 
 
 def calculate_confidence(transaction_count):
     if transaction_count >= 20:
-        return 95.0
+        return 0.95
 
     if transaction_count >= 10:
-        return 88.0
+        return 0.88
 
     if transaction_count >= 5:
-        return 78.0
+        return 0.78
 
     if transaction_count >= 1:
-        return 65.0
+        return 0.65
 
-    return 40.0
+    return 0.40
 
 
 def detect_anomalies(agent, provider):
-    transactions = Transaction.objects.filter(
-        agent=agent,
-        provider=provider,
-        status="SUCCESS",
-    ).order_by("-occurred_at")[:100]
+    transactions = list(
+        Transaction.objects.filter(
+            agent=agent,
+            provider=provider,
+            status="SUCCESS",
+        ).order_by("-occurred_at")[:100]
+    )
 
-    average_amount = transactions.aggregate(
-        average=Avg("amount")
-    )["average"] or Decimal("0")
+    if not transactions:
+        return []
 
+    average_amount = sum(tx.amount for tx in transactions) / max(len(transactions), 1)
     flagged_transactions = []
 
     for transaction in transactions[:20]:
-        if (
-            average_amount > 0
-            and transaction.amount >= average_amount * Decimal("3")
-        ):
+        if average_amount > 0 and transaction.amount >= average_amount * Decimal("3"):
             transaction.is_injected_anomaly = True
-            transaction.save(
-                update_fields=["is_injected_anomaly"]
-            )
-
+            transaction.save(update_fields=["is_injected_anomaly"])
             flagged_transactions.append(transaction)
+
+    repeated_result = detect_repeated_amount_anomaly(transactions)
+    if repeated_result.is_unusual:
+        for transaction in transactions[:4]:
+            if not transaction.is_injected_anomaly:
+                transaction.is_injected_anomaly = True
+                transaction.save(update_fields=["is_injected_anomaly"])
+                flagged_transactions.append(transaction)
+
+    velocity_result = detect_velocity_spike(transactions)
+    if velocity_result.is_unusual:
+        for transaction in transactions[:4]:
+            if not transaction.is_injected_anomaly:
+                transaction.is_injected_anomaly = True
+                transaction.save(update_fields=["is_injected_anomaly"])
+                flagged_transactions.append(transaction)
 
     return flagged_transactions
 

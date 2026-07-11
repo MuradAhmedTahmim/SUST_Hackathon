@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from statistics import mean, pstdev
+from decimal import Decimal
 
 
 @dataclass
@@ -55,3 +56,58 @@ def detect_velocity_anomaly(
             f"Historical average: {average:.2f}",
         ],
     )
+
+
+def detect_repeated_amount_anomaly(transactions, window_minutes: int = 15) -> AnomalyResult:
+    if len(transactions) < 4:
+        return AnomalyResult(False, 0, "Not enough transactions to evaluate repeated amounts.", [])
+
+    sorted_transactions = sorted(transactions, key=lambda tx: tx.occurred_at)
+    recent = [tx for tx in sorted_transactions if tx.occurred_at >= sorted_transactions[-1].occurred_at - timedelta(minutes=window_minutes)]
+
+    if len(recent) < 4:
+        return AnomalyResult(False, 0, "Not enough recent transactions to evaluate repeated amounts.", [])
+
+    amounts = [float(tx.amount) for tx in recent]
+    average_amount = mean(amounts)
+    near_equal = [amount for amount in amounts if abs(amount - average_amount) <= average_amount * 0.05]
+
+    if len(near_equal) >= 4:
+        return AnomalyResult(
+            True,
+            84.0,
+            "Several similar cash-out amounts occurred within a short period.",
+            [
+                f"Transactions: {len(recent)}",
+                f"Amount range: ৳{min(amounts):,.0f}–৳{max(amounts):,.0f}",
+                f"Average amount: ৳{average_amount:,.0f}",
+                f"Confidence: 82%",
+            ],
+        )
+
+    return AnomalyResult(False, 0, "Transaction amounts were not consistently similar.", [])
+
+
+def detect_velocity_spike(transactions, window_minutes: int = 20, baseline_per_hour: int = 5) -> AnomalyResult:
+    if len(transactions) < 3:
+        return AnomalyResult(False, 0, "Not enough transactions for velocity analysis.", [])
+
+    recent = [tx for tx in transactions if tx.occurred_at >= transactions[-1].occurred_at - timedelta(minutes=window_minutes)]
+    if len(recent) < 3:
+        return AnomalyResult(False, 0, "Not enough recent transactions for velocity analysis.", [])
+
+    current_rate = len(recent) / (window_minutes / 60)
+    if current_rate >= baseline_per_hour * 2.5:
+        return AnomalyResult(
+            True,
+            80.0,
+            "The transaction volume rose sharply within a short period.",
+            [
+                f"Current volume: {len(recent)} transactions in {window_minutes} minutes",
+                f"Baseline: {baseline_per_hour} per hour",
+                f"Current rate: {current_rate:.1f} per hour",
+                f"Confidence: 80%",
+            ],
+        )
+
+    return AnomalyResult(False, 0, "Transaction velocity is within the expected range.", [])

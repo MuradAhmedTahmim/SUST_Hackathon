@@ -2,14 +2,16 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from agents.models import Agent, Area, Provider
 from alerts.context_processors import unread_alert_count
-from alerts.models import Alert
+from alerts.models import Alert, AlertHistory
 from analytics.ai_explainer import answer_question, build_ai_summary
+from analytics.forecasting import forecast_liquidity
 from analytics.models import LiquidityForecast
-from analytics.views import create_liquidity_alert
+from alerts.services import create_liquidity_alert
 
 
 class AlertNotificationTests(TestCase):
@@ -46,7 +48,11 @@ class AlertNotificationTests(TestCase):
             estimated_shortage_at=timezone.now(),
         )
 
-        alert = create_liquidity_alert(forecast=forecast)
+        alert = create_liquidity_alert(
+            agent=self.agent,
+            provider=self.provider,
+            forecast=forecast,
+        )
 
         self.assertIsNotNone(alert)
         self.assertEqual(alert.status, "NEW")
@@ -74,6 +80,19 @@ class AlertNotificationTests(TestCase):
             unread_alert_count(request),
             {"unread_alert_count": 1},
         )
+
+    def test_forecast_returns_probability_in_zero_to_one_range(self):
+        forecast = forecast_liquidity(
+            current_balance=18000,
+            average_depletion_per_hour=800,
+            forecast_hours=2,
+            safety_threshold=10000,
+            data_status="FRESH",
+        )
+
+        self.assertGreaterEqual(forecast.shortage_probability, 0)
+        self.assertLessEqual(forecast.shortage_probability, 1)
+        self.assertGreater(forecast.confidence, 0)
 
     def test_ai_summary_contains_explainable_risk_summary(self):
         alert = Alert.objects.create(
@@ -112,3 +131,65 @@ class AlertNotificationTests(TestCase):
         answer = answer_question(alert, "Is this confirmed fraud?")
 
         self.assertIn("not proof of fraud", answer.lower())
+
+    def test_duplicate_alerts_are_not_created_for_active_warning(self):
+        forecast = LiquidityForecast.objects.create(
+            agent=self.agent,
+            provider=self.provider,
+            forecast_type="PROVIDER_BALANCE",
+            forecast_hours=2,
+            current_balance=Decimal("18000"),
+            predicted_demand=Decimal("8000"),
+            projected_balance=Decimal("10000"),
+            safety_threshold=Decimal("10000"),
+            shortage_probability=0.84,
+            confidence=0.88,
+            explanation="Projected balance may fall below safety threshold",
+            estimated_shortage_at=timezone.now(),
+        )
+
+        create_liquidity_alert(
+            agent=self.agent,
+            provider=self.provider,
+            forecast=forecast,
+        )
+        duplicate = create_liquidity_alert(
+            agent=self.agent,
+            provider=self.provider,
+            forecast=forecast,
+        )
+
+        self.assertEqual(Alert.objects.count(), 1)
+        self.assertEqual(duplicate.id, Alert.objects.get().id)
+
+    def test_alert_status_updates_create_history_entry(self):
+        alert = Alert.objects.create(
+            alert_code="ALT-004",
+            agent=self.agent,
+            provider=self.provider,
+            alert_type="LIQUIDITY_PRESSURE",
+            severity="HIGH",
+            confidence=0.84,
+            title="Possible Nagad liquidity shortage",
+            explanation="Projected balance may fall below safety threshold",
+            recommended_action="Review immediately",
+            status="NEW",
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("alerts:update_alert_status", args=[alert.pk]),
+            {
+                "status": "ACKNOWLEDGED",
+                "note": "Review started by the analyst.",
+            },
+        )
+
+        alert.refresh_from_db()
+        history = AlertHistory.objects.filter(alert=alert).first()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(alert.status, "ACKNOWLEDGED")
+        self.assertIsNotNone(history)
+        self.assertEqual(history.new_status, "ACKNOWLEDGED")
+        self.assertIn("analyst", history.note.lower())

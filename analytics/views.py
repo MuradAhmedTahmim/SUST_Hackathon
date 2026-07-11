@@ -12,9 +12,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from agents.models import Agent, AgentProviderBalance, Provider
-from alerts.models import Alert, AlertEvidence
+from alerts.services import create_liquidity_alert
 from transactions.models import Transaction
 
+from .forecasting import forecast_liquidity
 from .models import LiquidityForecast, ValidationMetric
 
 
@@ -122,33 +123,17 @@ def run_agent_forecast(request, agent_id):
             - predicted_demand
         )
 
-        shortage_probability = calculate_shortage_probability(
-            projected_balance=projected_balance,
-            safety_threshold=balance.safety_threshold,
+        forecast_result = forecast_liquidity(
+            current_balance=float(balance.current_balance),
+            average_depletion_per_hour=float(hourly_depletion),
+            forecast_hours=forecast_hours,
+            safety_threshold=float(balance.safety_threshold),
+            data_status=balance.data_status,
         )
 
-        confidence = DATA_CONFIDENCE.get(
-            balance.data_status,
-            50,
-        )
-
-        estimated_shortage_at = None
-
-        if hourly_depletion > 0:
-            usable_balance = max(
-                balance.current_balance
-                - balance.safety_threshold,
-                Decimal("0.00"),
-            )
-
-            hours_remaining = float(
-                usable_balance / hourly_depletion
-            )
-
-            estimated_shortage_at = (
-                timezone.now()
-                + timedelta(hours=hours_remaining)
-            )
+        shortage_probability = forecast_result.shortage_probability
+        confidence = forecast_result.confidence
+        estimated_shortage_at = forecast_result.estimated_shortage_at
 
         explanation = (
             f"{balance.provider.name} currently has "
@@ -179,8 +164,10 @@ def run_agent_forecast(request, agent_id):
 
         created_count += 1
 
-        if shortage_probability >= 50:
+        if shortage_probability >= 0.5:
             create_liquidity_alert(
+                agent=agent,
+                provider=balance.provider,
                 forecast=forecast,
             )
 
@@ -193,115 +180,6 @@ def run_agent_forecast(request, agent_id):
         "agents:agent_detail",
         agent_id=agent.id,
     )
-
-
-def calculate_shortage_probability(
-    projected_balance,
-    safety_threshold,
-):
-    if safety_threshold <= 0:
-        return 0
-
-    if projected_balance >= safety_threshold * Decimal("1.5"):
-        return 10
-
-    if projected_balance >= safety_threshold:
-        return 35
-
-    deficit = safety_threshold - projected_balance
-
-    deficit_ratio = float(
-        deficit / safety_threshold
-    )
-
-    return min(
-        round(50 + deficit_ratio * 50, 2),
-        100,
-    )
-
-
-def create_liquidity_alert(forecast):
-    existing_alert = Alert.objects.filter(
-        agent=forecast.agent,
-        provider=forecast.provider,
-        alert_type="LIQUIDITY_PRESSURE",
-        status__in=[
-            "NEW",
-            "ASSIGNED",
-            "ACKNOWLEDGED",
-            "INVESTIGATING",
-            "ESCALATED",
-        ],
-    ).first()
-
-    if existing_alert:
-        return existing_alert
-
-    if forecast.shortage_probability >= 90:
-        severity = "CRITICAL"
-    elif forecast.shortage_probability >= 70:
-        severity = "HIGH"
-    else:
-        severity = "MEDIUM"
-
-    title = (
-        "Possible Nagad liquidity shortage"
-        if forecast.provider.name.lower() == "nagad"
-        else f"{forecast.provider.name} liquidity pressure"
-    )
-
-    alert = Alert.objects.create(
-        alert_code=(
-            f"ALT-{uuid4().hex[:10].upper()}"
-        ),
-        agent=forecast.agent,
-        provider=forecast.provider,
-        alert_type="LIQUIDITY_PRESSURE",
-        severity=severity,
-        confidence=forecast.confidence,
-        title=title,
-        explanation=forecast.explanation,
-        recommended_action=(
-            "Verify the current provider balance and "
-            "contact the assigned field officer. "
-            "This output is advisory and requires "
-            "human review."
-        ),
-        status="NEW",
-    )
-
-    AlertEvidence.objects.bulk_create(
-        [
-            AlertEvidence(
-                alert=alert,
-                label="Current balance",
-                value=(
-                    f"৳{forecast.current_balance:,.2f}"
-                ),
-            ),
-            AlertEvidence(
-                alert=alert,
-                label="Predicted demand",
-                value=(
-                    f"৳{forecast.predicted_demand:,.2f}"
-                ),
-            ),
-            AlertEvidence(
-                alert=alert,
-                label="Projected balance",
-                value=(
-                    f"৳{forecast.projected_balance:,.2f}"
-                ),
-            ),
-            AlertEvidence(
-                alert=alert,
-                label="Confidence",
-                value=f"{forecast.confidence:.0f}%",
-            ),
-        ]
-    )
-
-    return alert
 
 
 @login_required

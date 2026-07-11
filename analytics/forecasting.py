@@ -20,6 +20,7 @@ def calculate_confidence(data_status: str) -> float:
         "DELAYED": 0.60,
         "MISSING": 0.20,
         "CONFLICTING": 0.35,
+        "RECOVERED": 0.75,
     }
 
     return factors.get(data_status, 0.50)
