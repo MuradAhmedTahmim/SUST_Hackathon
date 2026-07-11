@@ -28,11 +28,11 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "sust-hackathon-4.onrender.com",
+    "sust-hackathon-8.onrender.com",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://sust-hackathon-4.onrender.com",
+    "https://sust-hackathon-8.onrender.com",
 ]
 # Application definition
 
