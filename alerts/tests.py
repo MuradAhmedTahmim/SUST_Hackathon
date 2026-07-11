@@ -1,4 +1,6 @@
+from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
@@ -9,9 +11,10 @@ from agents.models import Agent, Area, Provider
 from alerts.context_processors import unread_alert_count
 from alerts.models import Alert, AlertHistory
 from analytics.ai_explainer import answer_question, build_ai_summary
+from analytics.anomaly_detection import detect_repeated_amount_anomaly
 from analytics.forecasting import forecast_liquidity
 from analytics.models import LiquidityForecast
-from alerts.services import create_liquidity_alert
+from alerts.services import create_combined_liquidity_alert, create_liquidity_alert
 
 
 class AlertNotificationTests(TestCase):
@@ -193,3 +196,98 @@ class AlertNotificationTests(TestCase):
         self.assertIsNotNone(history)
         self.assertEqual(history.new_status, "ACKNOWLEDGED")
         self.assertIn("analyst", history.note.lower())
+
+    def test_repeated_amount_anomaly_produces_review_signal(self):
+        base_time = timezone.now()
+        transactions = [
+            SimpleNamespace(
+                amount=Decimal("10000"),
+                occurred_at=base_time - timedelta(minutes=10),
+            ),
+            SimpleNamespace(
+                amount=Decimal("10050"),
+                occurred_at=base_time - timedelta(minutes=8),
+            ),
+            SimpleNamespace(
+                amount=Decimal("9950"),
+                occurred_at=base_time - timedelta(minutes=6),
+            ),
+            SimpleNamespace(
+                amount=Decimal("10100"),
+                occurred_at=base_time - timedelta(minutes=4),
+            ),
+            SimpleNamespace(
+                amount=Decimal("10020"),
+                occurred_at=base_time - timedelta(minutes=2),
+            ),
+            SimpleNamespace(
+                amount=Decimal("10080"),
+                occurred_at=base_time,
+            ),
+        ]
+
+        result = detect_repeated_amount_anomaly(transactions, window_minutes=12)
+
+        self.assertTrue(result.is_unusual)
+        self.assertEqual(result.severity, "high")
+        self.assertTrue(result.requires_human_review)
+        self.assertIn("6", result.evidence["transaction_count"])
+        self.assertIn("12", result.evidence["time_window_minutes"])
+
+    def test_combined_alert_created_for_unusual_activity_and_pressure(self):
+        forecast = LiquidityForecast.objects.create(
+            agent=self.agent,
+            provider=self.provider,
+            forecast_type="PROVIDER_BALANCE",
+            forecast_hours=2,
+            current_balance=Decimal("8000"),
+            predicted_demand=Decimal("6000"),
+            projected_balance=Decimal("2000"),
+            safety_threshold=Decimal("5000"),
+            shortage_probability=0.82,
+            confidence=0.81,
+            explanation="Projected balance may fall below safety threshold",
+            estimated_shortage_at=timezone.now(),
+        )
+
+        anomaly = detect_repeated_amount_anomaly(
+            [
+                SimpleNamespace(
+                    amount=Decimal("10000"),
+                    occurred_at=timezone.now() - timedelta(minutes=10),
+                ),
+                SimpleNamespace(
+                    amount=Decimal("10100"),
+                    occurred_at=timezone.now() - timedelta(minutes=8),
+                ),
+                SimpleNamespace(
+                    amount=Decimal("10050"),
+                    occurred_at=timezone.now() - timedelta(minutes=6),
+                ),
+                SimpleNamespace(
+                    amount=Decimal("9950"),
+                    occurred_at=timezone.now() - timedelta(minutes=4),
+                ),
+                SimpleNamespace(
+                    amount=Decimal("10020"),
+                    occurred_at=timezone.now() - timedelta(minutes=2),
+                ),
+                SimpleNamespace(
+                    amount=Decimal("10080"),
+                    occurred_at=timezone.now(),
+                ),
+            ],
+            window_minutes=12,
+        )
+
+        alert = create_combined_liquidity_alert(
+            agent=self.agent,
+            provider=self.provider,
+            forecast=forecast,
+            anomaly=anomaly,
+        )
+
+        self.assertIsNotNone(alert)
+        self.assertEqual(alert.alert_type, "LIQUIDITY_PRESSURE")
+        self.assertIn("unusual activity", alert.title.lower())
+        self.assertIn("unusual activity", alert.explanation.lower())

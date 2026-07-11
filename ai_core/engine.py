@@ -5,7 +5,7 @@ from django.db.models import Avg, Sum
 from django.utils import timezone
 
 from alerts.models import Alert
-from alerts.services import create_liquidity_alert
+from alerts.services import create_combined_liquidity_alert, create_liquidity_alert
 from analytics.anomaly_detection import detect_repeated_amount_anomaly, detect_velocity_spike
 from analytics.forecasting import forecast_liquidity
 from analytics.models import LiquidityForecast
@@ -112,7 +112,23 @@ def analyse_agent_provider(agent, provider):
 
     alert = None
 
-    if shortage_probability >= 0.5:
+    if anomalies and shortage_probability >= 0.75:
+        combined_anomaly = next(
+            (
+                anomaly
+                for anomaly in anomalies
+                if getattr(anomaly, "is_unusual", False)
+            ),
+            None,
+        )
+        if combined_anomaly:
+            alert = create_combined_liquidity_alert(
+                agent=agent,
+                provider=provider,
+                forecast=forecast,
+                anomaly=combined_anomaly,
+            )
+    elif shortage_probability >= 0.5:
         alert = create_liquidity_alert(
             agent=agent,
             provider=provider,
@@ -183,32 +199,17 @@ def detect_anomalies(agent, provider):
     if not transactions:
         return []
 
-    average_amount = sum(tx.amount for tx in transactions) / max(len(transactions), 1)
-    flagged_transactions = []
-
-    for transaction in transactions[:20]:
-        if average_amount > 0 and transaction.amount >= average_amount * Decimal("3"):
-            transaction.is_injected_anomaly = True
-            transaction.save(update_fields=["is_injected_anomaly"])
-            flagged_transactions.append(transaction)
+    anomalies = []
 
     repeated_result = detect_repeated_amount_anomaly(transactions)
     if repeated_result.is_unusual:
-        for transaction in transactions[:4]:
-            if not transaction.is_injected_anomaly:
-                transaction.is_injected_anomaly = True
-                transaction.save(update_fields=["is_injected_anomaly"])
-                flagged_transactions.append(transaction)
+        anomalies.append(repeated_result)
 
     velocity_result = detect_velocity_spike(transactions)
     if velocity_result.is_unusual:
-        for transaction in transactions[:4]:
-            if not transaction.is_injected_anomaly:
-                transaction.is_injected_anomaly = True
-                transaction.save(update_fields=["is_injected_anomaly"])
-                flagged_transactions.append(transaction)
+        anomalies.append(velocity_result)
 
-    return flagged_transactions
+    return anomalies
 
 
 def create_alert(
