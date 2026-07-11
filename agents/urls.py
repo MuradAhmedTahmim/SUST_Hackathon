@@ -8,6 +8,11 @@ app_name = "agents"
 
 urlpatterns = [
     path(
+    "<int:agent_id>/provider/<int:provider_id>/run-ai/",
+    views.run_ai_analysis,
+    name="run_ai_analysis",
+    ),
+    path(
         "",
         views.agent_list,
         name="agent_list",

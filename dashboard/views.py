@@ -78,10 +78,10 @@ def dashboard_home(request):
             is_active=True
         )
         .annotate(
-            total_balance=Sum(
-                "agentproviderbalance__current_balance"
-            )
-        )
+    total_balance=Sum(
+        "agent_balances__current_balance"
+    )
+)
         .order_by("name")
     )
 

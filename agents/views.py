@@ -11,7 +11,13 @@ from alerts.models import Alert
 from transactions.models import Transaction
 
 from .models import Agent, AgentProviderBalance, Area, Provider
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect
 
+from ai_core.engine import analyse_agent_provider
+from ai_core.engine import analyse_agent_provider
+from .models import Agent, Provider
 
 @login_required
 def agent_list(request):
@@ -150,4 +156,48 @@ def agent_delete(request, agent_id):
         agent.delete()
         messages.success(request, f"Agent {outlet_name} deleted successfully.")
         return redirect("agents:agent_list")
-    return render(request, "agents/agent_confirm_delete.html", {"agent": agent})
+    return render(request, "agents/agent_confirm_delete.html", {"agent": agent})
+
+
+@login_required
+def run_ai_analysis(request, agent_id, provider_id):
+    if request.method != "POST":
+        messages.error(
+            request,
+            "Invalid request method.",
+        )
+        return redirect(
+            "agents:detail",
+            pk=agent_id,
+        )
+
+    agent = get_object_or_404(
+        Agent,
+        pk=agent_id,
+    )
+
+    provider = get_object_or_404(
+        Provider,
+        pk=provider_id,
+    )
+
+    result = analyse_agent_provider(
+        agent=agent,
+        provider=provider,
+    )
+
+    if result["success"]:
+        messages.success(
+            request,
+            "AI analysis completed successfully.",
+        )
+    else:
+        messages.error(
+            request,
+            result["message"],
+        )
+
+    return redirect(
+        "agents:detail",
+        pk=agent.pk,
+    )
