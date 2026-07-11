@@ -7,6 +7,7 @@ from django.utils import timezone
 from agents.models import Agent, Area, Provider
 from alerts.context_processors import unread_alert_count
 from alerts.models import Alert
+from analytics.ai_explainer import answer_question, build_ai_summary
 from analytics.models import LiquidityForecast
 from analytics.views import create_liquidity_alert
 
@@ -73,3 +74,41 @@ class AlertNotificationTests(TestCase):
             unread_alert_count(request),
             {"unread_alert_count": 1},
         )
+
+    def test_ai_summary_contains_explainable_risk_summary(self):
+        alert = Alert.objects.create(
+            alert_code="ALT-002",
+            agent=self.agent,
+            provider=self.provider,
+            alert_type="LIQUIDITY_PRESSURE",
+            severity="HIGH",
+            confidence=0.84,
+            title="Possible Nagad liquidity shortage",
+            explanation="Projected balance may fall below safety threshold",
+            recommended_action="Review immediately",
+            status="NEW",
+        )
+
+        summary = build_ai_summary(alert, language="en")
+
+        self.assertIn("liquidity", summary["english"].lower())
+        self.assertIn("review", summary["recommended_action"].lower())
+        self.assertEqual(summary["confidence"], 84)
+
+    def test_ai_question_answer_avoids_false_claims(self):
+        alert = Alert.objects.create(
+            alert_code="ALT-003",
+            agent=self.agent,
+            provider=self.provider,
+            alert_type="LIQUIDITY_PRESSURE",
+            severity="HIGH",
+            confidence=0.84,
+            title="Possible Nagad liquidity shortage",
+            explanation="Projected balance may fall below safety threshold",
+            recommended_action="Review immediately",
+            status="NEW",
+        )
+
+        answer = answer_question(alert, "Is this confirmed fraud?")
+
+        self.assertIn("not proof of fraud", answer.lower())
