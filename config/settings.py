@@ -25,9 +25,15 @@ SECRET_KEY = 'django-insecure-q8zqcsbl7hz!vegjanrf&ra343f5hqd_c2^k0!2=4#5n71#1y6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "sust-hackathon-4.onrender.com",
+]
 
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://sust-hackathon-4.onrender.com",
+]
 # Application definition
 
 INSTALLED_APPS = [
