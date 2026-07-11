@@ -244,6 +244,12 @@ def create_liquidity_alert(forecast):
     else:
         severity = "MEDIUM"
 
+    title = (
+        "Possible Nagad liquidity shortage"
+        if forecast.provider.name.lower() == "nagad"
+        else f"{forecast.provider.name} liquidity pressure"
+    )
+
     alert = Alert.objects.create(
         alert_code=(
             f"ALT-{uuid4().hex[:10].upper()}"
@@ -253,10 +259,7 @@ def create_liquidity_alert(forecast):
         alert_type="LIQUIDITY_PRESSURE",
         severity=severity,
         confidence=forecast.confidence,
-        title=(
-            f"{forecast.provider.name} "
-            f"liquidity pressure"
-        ),
+        title=title,
         explanation=forecast.explanation,
         recommended_action=(
             "Verify the current provider balance and "
@@ -264,6 +267,7 @@ def create_liquidity_alert(forecast):
             "This output is advisory and requires "
             "human review."
         ),
+        status="NEW",
     )
 
     AlertEvidence.objects.bulk_create(
