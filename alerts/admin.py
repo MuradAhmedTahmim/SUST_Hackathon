@@ -3,7 +3,7 @@ from django.contrib import admin
 # Register your models here.
 from django.contrib import admin
 
-from .models import Alert, AlertEvidence, AlertHistory
+from .models import Alert, AlertEvidence, AlertHistory, Notification
 
 
 class AlertEvidenceInline(admin.TabularInline):
@@ -27,6 +27,7 @@ class AlertAdmin(admin.ModelAdmin):
         "severity",
         "status",
         "owner",
+        "assigned_to",
         "created_at",
     )
 
@@ -42,6 +43,8 @@ class AlertAdmin(admin.ModelAdmin):
         "title",
         "agent__agent_code",
         "agent__outlet_name",
+        "owner__username",
+        "assigned_to__username",
     )
 
     inlines = [
@@ -52,3 +55,30 @@ class AlertAdmin(admin.ModelAdmin):
 
 admin.site.register(AlertEvidence)
 admin.site.register(AlertHistory)
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "recipient",
+        "alert",
+        "transaction",
+        "level",
+        "is_read",
+        "created_at",
+    )
+
+    list_filter = (
+        "level",
+        "is_read",
+        "created_at",
+    )
+
+    search_fields = (
+        "title",
+        "message",
+        "recipient__username",
+        "transaction__transaction_reference",
+        "alert__alert_code",
+    )

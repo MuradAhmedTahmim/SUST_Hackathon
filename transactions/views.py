@@ -7,12 +7,13 @@ from django.utils.dateparse import parse_date
 from agents.models import Agent, Provider
 from ai_core.engine import analyse_agent_provider
 from ai_core.model_predictor import predict_transaction_anomaly
+from alerts.services import create_notification
 
 from .forms import TransactionForm
 from .models import Transaction
 
 
-def run_transaction_ai(transaction):
+def run_transaction_ai(transaction, recipient=None):
     """
     Run anomaly prediction and liquidity analysis for a transaction.
 
@@ -23,6 +24,7 @@ def run_transaction_ai(transaction):
         "anomaly_checked": False,
         "is_anomaly": False,
         "liquidity_checked": False,
+        "notification_created": False,
         "errors": [],
     }
 
@@ -65,6 +67,7 @@ def run_transaction_ai(transaction):
     # --------------------------------------------------
     # Liquidity forecast and alert generation
     # --------------------------------------------------
+    liquidity_result = None
     try:
         liquidity_result = analyse_agent_provider(
             agent=transaction.agent,
@@ -84,6 +87,40 @@ def run_transaction_ai(transaction):
     except Exception as error:
         results["errors"].append(
             f"Liquidity analysis failed: {error}"
+        )
+
+    try:
+        alert = None
+        if liquidity_result and liquidity_result.get("success"):
+            alert = liquidity_result.get("alert")
+
+        if alert:
+            level = alert.severity if alert.severity in {"HIGH", "CRITICAL"} else "WARNING"
+            title = f"Alert created: {alert.title}"
+            message = (
+                f"Transaction {transaction.transaction_reference} was saved, anomaly analysis ran, "
+                f"liquidity was forecast, and alert {alert.alert_code} was created."
+            )
+        else:
+            level = "INFO"
+            title = "Transaction processed successfully"
+            message = (
+                f"Transaction {transaction.transaction_reference} was saved, anomaly analysis ran, "
+                "and liquidity forecast was completed. No high-risk alert was needed."
+            )
+
+        create_notification(
+            recipient=recipient,
+            alert=alert,
+            transaction=transaction,
+            level=level,
+            title=title,
+            message=message,
+        )
+        results["notification_created"] = True
+    except Exception as error:
+        results["errors"].append(
+            f"Notification creation failed: {error}"
         )
 
     return results
@@ -220,7 +257,8 @@ def transaction_create(request):
             transaction = form.save()
 
             ai_result = run_transaction_ai(
-                transaction
+                transaction,
+                recipient=request.user,
             )
 
             success_message = (
@@ -237,6 +275,11 @@ def transaction_create(request):
             if ai_result["liquidity_checked"]:
                 success_message += (
                     " Liquidity forecasting was updated."
+                )
+
+            if ai_result["notification_created"]:
+                success_message += (
+                    " A notification was created."
                 )
 
             messages.success(
@@ -285,7 +328,8 @@ def transaction_edit(request, pk):
             transaction = form.save()
 
             ai_result = run_transaction_ai(
-                transaction
+                transaction,
+                recipient=request.user,
             )
 
             success_message = (
@@ -302,6 +346,11 @@ def transaction_edit(request, pk):
             if ai_result["liquidity_checked"]:
                 success_message += (
                     " Liquidity forecasting was updated."
+                )
+
+            if ai_result["notification_created"]:
+                success_message += (
+                    " A notification was created."
                 )
 
             messages.success(

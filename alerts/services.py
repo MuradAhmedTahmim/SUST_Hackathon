@@ -1,6 +1,9 @@
 import uuid
 
-from alerts.models import Alert, AlertEvidence
+from django.conf import settings
+from django.core.mail import send_mail
+
+from alerts.models import Alert, AlertEvidence, Notification
 
 
 def determine_alert_owner(alert):
@@ -176,3 +179,37 @@ def create_combined_liquidity_alert(agent, provider, forecast, anomaly):
     ])
 
     return alert
+
+
+def create_notification(
+    *,
+    title,
+    message,
+    level="INFO",
+    recipient=None,
+    alert=None,
+    transaction=None,
+):
+    notification = Notification.objects.create(
+        recipient=recipient,
+        alert=alert,
+        transaction=transaction,
+        level=level,
+        title=title,
+        message=message,
+    )
+
+    recipient_email = getattr(recipient, "email", "") if recipient else ""
+    if not recipient_email and alert and alert.owner:
+        recipient_email = alert.owner.email or ""
+
+    if recipient_email and level in {"HIGH", "CRITICAL"}:
+        send_mail(
+            subject=title,
+            message=message,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[recipient_email],
+            fail_silently=True,
+        )
+
+    return notification

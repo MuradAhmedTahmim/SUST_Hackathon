@@ -1,1 +1,165 @@
-{% extends 'base.html' %}{% load static %}{% block title %}{{ alert.alert_code }} | AgentPulse AI{% endblock %}{% block extra_css %}<link rel="stylesheet" href="{% static 'css/alerts.css' %}">{% endblock %}{% block page_title %}Alert Details{% endblock %}{% block content %}<div class="detail-header panel"><div><div class="chip-wrap"><span class="badge {{ alert.severity|lower }}">{{ alert.severity }}</span><span class="badge neutral">{{ alert.get_status_display }}</span></div><h2>{{ alert.title }}</h2><p>{{ alert.alert_code }} • Created {{ alert.created_at|date:'d M Y, H:i' }}</p></div><a class="btn btn-light" href="{% url 'alerts:alert_list' %}">← Back to alerts</a></div><div class="content-grid two-one"><section class="panel"><div class="panel-head"><h3>Explainable AI Assistant</h3><span class="badge neutral">{{ ai_summary.confidence|default:alert.confidence|floatformat:0 }}% confidence</span></div><div class="chip-wrap"><a class="btn btn-light" href="?lang=en{% if question %}&question={{ question|urlencode }}{% endif %}">English</a><a class="btn btn-light" href="?lang=bn{% if question %}&question={{ question|urlencode }}{% endif %}">বাংলা</a></div><p class="prose">{% if request.GET.lang == 'bn' %}{{ ai_summary.bangla }}{% else %}{{ ai_summary.english }}{% endif %}</p><div class="callout"><strong>Recommended action</strong><p>{{ ai_summary.recommended_action }}</p></div><div class="callout"><strong>Supporting evidence</strong><ul>{% for evidence in ai_summary.supporting_evidence %}<li>{{ evidence }}</li>{% endfor %}</ul></div><div class="callout"><strong>Possible false-positive reason</strong><p>{{ ai_summary.false_positive_reason }}</p></div></section><aside class="panel"><h3>Assignment</h3><dl class="meta-list"><div><dt>Agent</dt><dd><a href="{% url 'agents:agent_detail' alert.agent.id %}">{{ alert.agent.outlet_name }}</a></dd></div><div><dt>Provider</dt><dd>{{ alert.provider.name|default:'Not applicable' }}</dd></div><div><dt>Owner</dt><dd>{{ alert.owner.get_full_name|default:alert.owner.username|default:'Unassigned' }}</dd></div><div><dt>Type</dt><dd>{{ alert.get_alert_type_display }}</dd></div></dl></aside></div><div class="content-grid two-one"><section class="panel"><div class="panel-head"><h3>Ask AI about this alert</h3></div><form method="get" class="stacked-form"><input type="text" name="question" value="{{ question }}" placeholder="Why was this alert created?" /><button class="btn" type="submit">Ask</button></form>{% if ai_answer %}<div class="callout"><strong>AI answer</strong><p>{{ ai_answer }}</p></div>{% endif %}</section><section class="panel"><div class="panel-head"><h3>Evidence</h3></div><div class="evidence-grid">{% for item in alert.evidence.all %}<div><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>{% empty %}<p class="empty">No evidence attached.</p>{% endfor %}</div></section></div><div class="content-grid one"><section class="panel"><div class="panel-head"><h3>History</h3></div><div class="timeline">{% for item in alert.history.all %}<div><i></i><span><strong>{{ item.new_status|title }}</strong><small>{{ item.created_at|date:'d M Y H:i' }}{% if item.actor %} • {{ item.actor.username }}{% endif %}</small><p>{{ item.note }}</p></span></div>{% empty %}<p class="empty">No status history.</p>{% endfor %}</div></section></div>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ alert.alert_code }} | AgentPulse AI{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/alerts.css' %}">
+{% endblock %}
+{% block page_title %}Alert Details{% endblock %}
+{% block content %}
+<div class="detail-header panel">
+    <div>
+        <div class="chip-wrap">
+            <span class="badge {{ alert.severity|lower }}">{{ alert.severity }}</span>
+            <span class="badge neutral">{{ alert.get_status_display }}</span>
+        </div>
+        <h2>{{ alert.title }}</h2>
+        <p>{{ alert.alert_code }} • Created {{ alert.created_at|date:'d M Y, H:i' }}</p>
+    </div>
+    <a class="btn btn-light" href="{% url 'alerts:alert_list' %}">← Back to alerts</a>
+</div>
+
+<div class="content-grid two-one">
+    <section class="panel">
+        <div class="panel-head">
+            <h3>Explainable AI Assistant</h3>
+            <span class="badge neutral">{{ ai_summary.confidence|default:alert.confidence|floatformat:0 }}% confidence</span>
+        </div>
+        <div class="chip-wrap">
+            <a class="btn btn-light" href="?lang=en{% if question %}&question={{ question|urlencode }}{% endif %}">English</a>
+            <a class="btn btn-light" href="?lang=bn{% if question %}&question={{ question|urlencode }}{% endif %}">বাংলা</a>
+        </div>
+        <p class="prose">
+            {% if request.GET.lang == 'bn' %}
+                {{ ai_summary.bangla }}
+            {% else %}
+                {{ ai_summary.english }}
+            {% endif %}
+        </p>
+        <div class="callout">
+            <strong>Recommended action</strong>
+            <p>{{ ai_summary.recommended_action }}</p>
+        </div>
+        <div class="callout">
+            <strong>Supporting evidence</strong>
+            <ul>
+                {% for evidence in ai_summary.supporting_evidence %}
+                    <li>{{ evidence }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="callout">
+            <strong>Possible false-positive reason</strong>
+            <p>{{ ai_summary.false_positive_reason }}</p>
+        </div>
+    </section>
+
+    <aside class="panel">
+        <h3>Assignment</h3>
+        <dl class="meta-list">
+            <div>
+                <dt>Agent</dt>
+                <dd><a href="{% url 'agents:agent_detail' alert.agent.id %}">{{ alert.agent.outlet_name }}</a></dd>
+            </div>
+            <div>
+                <dt>Provider</dt>
+                <dd>{{ alert.provider.name|default:'Not applicable' }}</dd>
+            </div>
+            <div>
+                <dt>Owner</dt>
+                <dd>{{ alert.owner.get_full_name|default:alert.owner.username|default:'Unassigned' }}</dd>
+            </div>
+            <div>
+                <dt>Assigned to</dt>
+                <dd>{{ alert.assigned_to.get_full_name|default:alert.assigned_to.username|default:'Unassigned' }}</dd>
+            </div>
+            <div>
+                <dt>Status</dt>
+                <dd>{{ alert.get_status_display }}</dd>
+            </div>
+            <div>
+                <dt>Recommended</dt>
+                <dd>{{ alert.recommended_action|default:'Human review required' }}</dd>
+            </div>
+        </dl>
+        <div class="callout">
+            <strong>Recent notification</strong>
+            <p>
+                {% if alert.notifications.first %}
+                    {{ alert.notifications.first.title }}
+                {% else %}
+                    No notification recorded yet.
+                {% endif %}
+            </p>
+        </div>
+    </aside>
+</div>
+
+<section class="panel">
+    <div class="panel-head">
+        <h3>Alert coordination</h3>
+    </div>
+    <form method="post" action="{% url 'alerts:update_alert_status' alert.pk %}" class="stack-form">
+        {% csrf_token %}
+        <label>Status
+            <select name="status">
+                {% for value,label in status_choices %}
+                    <option value="{{ value }}" {% if alert.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Owner
+            <select name="owner_id">
+                <option value="">Keep current</option>
+                {% for user in staff_users %}
+                    <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Assigned to
+            <select name="assigned_to_id">
+                <option value="">Keep current</option>
+                {% for user in staff_users %}
+                    <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Note
+            <textarea name="note" rows="3" placeholder="Optional coordination note"></textarea>
+        </label>
+        <button class="btn btn-primary">Update alert</button>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="panel-head">
+        <h3>History</h3>
+    </div>
+    <div class="timeline">
+        {% for item in alert.history.all %}
+            <article class="timeline-item">
+                <strong>{{ item.get_new_status_display }}</strong>
+                <small>
+                    {{ item.created_at|date:'d M Y, H:i' }}
+                    {% if item.actor %} • {{ item.actor.get_full_name|default:item.actor.username }}{% endif %}
+                </small>
+                <p>{{ item.note|default:'Status changed.' }}</p>
+            </article>
+        {% empty %}
+            <p class="empty">No history yet.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-head">
+        <h3>Evidence</h3>
+    </div>
+    <ul class="evidence-list">
+        {% for item in alert.evidence.all %}
+            <li><strong>{{ item.label }}:</strong> {{ item.value }}</li>
+        {% empty %}
+            <li class="empty">No evidence attached.</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

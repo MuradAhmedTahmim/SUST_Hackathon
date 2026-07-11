@@ -12,10 +12,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from agents.models import Agent, AgentProviderBalance, Provider
+from alerts.models import Alert
 from alerts.services import create_liquidity_alert
 from transactions.models import Transaction
 
 from .forecasting import forecast_liquidity
+from .metrics_service import calculate_workflow_metrics, refresh_validation_metric_rows
 from .models import LiquidityForecast, ValidationMetric
 
 
@@ -134,6 +136,20 @@ def run_agent_forecast(request, agent_id):
         shortage_probability = forecast_result.shortage_probability
         confidence = forecast_result.confidence
         estimated_shortage_at = forecast_result.estimated_shortage_at
+        data_status = (balance.data_status or "FRESH").upper()
+        data_age_hours = (
+            timezone.now() - balance.data_timestamp
+        ).total_seconds() / 3600
+
+        if data_status == "DELAYED" and data_age_hours >= 18:
+            confidence = round(max(confidence - 0.15, 0.0), 4)
+
+        if data_status == "MISSING":
+            shortage_probability = 0.0
+            confidence = 0.0
+        elif data_status == "CONFLICTING":
+            shortage_probability = min(shortage_probability, 0.25)
+            confidence = min(confidence, 0.25)
 
         explanation = (
             f"{balance.provider.name} currently has "
@@ -146,6 +162,17 @@ def run_agent_forecast(request, agent_id):
             f"Data status is "
             f"{balance.get_data_status_display()}."
         )
+
+        if data_status == "DELAYED" and data_age_hours >= 18:
+            explanation += (
+                f" Confidence is reduced because the balance data is delayed by {data_age_hours:.0f} hours."
+            )
+
+        if data_status == "MISSING":
+            explanation += " Manual verification required because the provider balance data is missing."
+
+        if data_status == "CONFLICTING":
+            explanation += " Manual verification required because the provider balance data is conflicting."
 
         forecast = LiquidityForecast.objects.create(
             agent=agent,
@@ -164,7 +191,7 @@ def run_agent_forecast(request, agent_id):
 
         created_count += 1
 
-        if shortage_probability >= 0.5:
+        if data_status not in {"MISSING", "CONFLICTING"} and shortage_probability >= 0.5:
             create_liquidity_alert(
                 agent=agent,
                 provider=balance.provider,
@@ -203,6 +230,9 @@ def anomaly_review(request):
 
 @login_required
 def metrics_dashboard(request):
+    workflow_metrics = calculate_workflow_metrics()
+    refresh_validation_metric_rows()
+
     latest_metrics = {}
 
     for metric_type, _ in ValidationMetric.METRIC_TYPES:
@@ -236,6 +266,7 @@ def metrics_dashboard(request):
         {
             "latest_metrics": latest_metrics,
             "alert_statistics": alert_statistics,
+            "workflow_metrics": workflow_metrics,
         },
     )
 

@@ -62,6 +62,13 @@ class Alert(models.Model):
         null=True,
         blank=True,
     )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_alerts",
+    )
     status = models.CharField(
         max_length=30,
         choices=STATUS_CHOICES,
@@ -101,3 +108,49 @@ class AlertHistory(models.Model):
     new_status = models.CharField(max_length=30)
     note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Notification(models.Model):
+    LEVEL_CHOICES = [
+        ("INFO", "Info"),
+        ("WARNING", "Warning"),
+        ("HIGH", "High"),
+        ("CRITICAL", "Critical"),
+    ]
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+    alert = models.ForeignKey(
+        Alert,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+    transaction = models.ForeignKey(
+        "transactions.Transaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+    level = models.CharField(
+        max_length=20,
+        choices=LEVEL_CHOICES,
+        default="INFO",
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title

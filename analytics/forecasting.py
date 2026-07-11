@@ -17,10 +17,10 @@ class ForecastResult:
 def calculate_confidence(data_status: str) -> float:
     factors = {
         "FRESH": 0.90,
-        "DELAYED": 0.60,
-        "MISSING": 0.20,
-        "CONFLICTING": 0.35,
-        "RECOVERED": 0.75,
+        "DELAYED": 0.75,
+        "MISSING": 0.00,
+        "CONFLICTING": 0.25,
+        "RECOVERED": 0.80,
     }
 
     return factors.get(data_status, 0.50)

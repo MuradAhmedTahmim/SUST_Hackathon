@@ -73,6 +73,15 @@ def analyse_agent_provider(agent, provider):
 
     shortage_probability = forecast_result.shortage_probability
     confidence = forecast_result.confidence
+    data_age_hours = (now - balance_record.data_timestamp).total_seconds() / 3600
+    data_status = (balance_record.data_status or "FRESH").upper()
+
+    if data_status == "DELAYED" and data_age_hours >= 18:
+        confidence = round(max(confidence - 0.15, 0.0), 4)
+
+    manual_verification_required = data_status in {"MISSING", "CONFLICTING"}
+    if manual_verification_required:
+        shortage_probability = 0.0 if data_status == "MISSING" else min(shortage_probability, 0.25)
 
     if local_forecast_model.is_ready():
         model_features = [
@@ -95,7 +104,22 @@ def analyse_agent_provider(agent, provider):
         f"Safety threshold is {safety_threshold}."
     )
 
-    if shortage_amount > 0:
+    if data_status == "DELAYED" and data_age_hours >= 18:
+        explanation += (
+            f" Confidence is reduced because provider balance data is delayed by {data_age_hours:.0f} hours."
+        )
+
+    if data_status == "MISSING":
+        explanation += " Manual verification required because the provider balance data is missing."
+
+    if data_status == "CONFLICTING":
+        explanation += " Manual verification required because the provider balance data is conflicting."
+
+    if manual_verification_required:
+        recommendation = (
+            "Manual verification required before taking action because the provider balance data is missing or conflicting."
+        )
+    elif shortage_amount > 0:
         recommendation = (
             "Verify the latest provider balance and contact the "
             "authorized field officer to arrange approved liquidity support."
@@ -127,7 +151,7 @@ def analyse_agent_provider(agent, provider):
 
     alert = None
 
-    if anomalies and shortage_probability >= 0.75:
+    if not manual_verification_required and anomalies and shortage_probability >= 0.75:
         combined_anomaly = next(
             (
                 anomaly
@@ -143,7 +167,7 @@ def analyse_agent_provider(agent, provider):
                 forecast=forecast,
                 anomaly=combined_anomaly,
             )
-    elif shortage_probability >= 0.5:
+    elif not manual_verification_required and shortage_probability >= 0.5:
         alert = create_liquidity_alert(
             agent=agent,
             provider=provider,
@@ -156,6 +180,7 @@ def analyse_agent_provider(agent, provider):
         "alert": alert,
         "anomalies": anomalies,
         "recommendation": recommendation,
+        "manual_verification_required": manual_verification_required,
     }
 
 

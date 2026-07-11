@@ -345,7 +345,8 @@ python manage.py test alerts
 Current workflow verification reported:
 
 ```text
-7 tests run
+9 alert tests run
+2 transaction workflow tests run
 0 failures
 0 errors
 ```
@@ -445,6 +446,17 @@ Evaluation should be based on measured outputs rather than invented values. Usef
 - AI Q&A on alert details
 - Workflow-level metrics
 - Alert regression tests passing
+- Admin support for users, groups, permissions, and profiles
+
+---
+
+## Project Documents
+
+- [Architecture](ARCHITECTURE.md)
+- [Data and Simulation](DATA_AND_SIMULATION.md)
+- [Validation](VALIDATION.md)
+- [Responsible AI](RESPONSIBLE_AI.md)
+- [Limitations](LIMITATIONS.md)
 
 ---
 
