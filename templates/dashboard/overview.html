@@ -29,6 +29,7 @@
 {% endif %}
 
 <section class="stat-grid">
+    {% if current_role == "ADMIN" %}
     <article class="stat-card">
         <span>Total agents</span>
         <strong>{{ total_agents }}</strong>
@@ -52,6 +53,127 @@
         <strong>৳{{ cash_in_volume|floatformat:0 }}</strong>
         <small>Out: ৳{{ cash_out_volume|floatformat:0 }}</small>
     </article>
+    {% elif current_role == "AGENT" %}
+    <article class="stat-card">
+        <span>Assigned agent</span>
+        <strong>{{ assigned_agent_name|default:'Unassigned' }}</strong>
+        <small>Outlet view for your account</small>
+    </article>
+
+    <article class="stat-card">
+        <span>24h volume</span>
+        <strong>৳{{ total_volume|default:'0'|floatformat:0 }}</strong>
+        <small>{{ total_transactions|default:'0' }} transactions</small>
+    </article>
+
+    <article class="stat-card danger">
+        <span>Active alerts</span>
+        <strong>{{ critical_alerts|default:'0' }}</strong>
+        <small>{{ high_alerts|default:'0' }} high severity</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Provider count</span>
+        <strong>{{ provider_count|default:'0' }}</strong>
+        <small>Providers linked</small>
+    </article>
+    {% elif current_role == "FIELD_OFFICER" %}
+    <article class="stat-card">
+        <span>Assigned area</span>
+        <strong>{{ assigned_area_name|default:'Unassigned' }}</strong>
+        <small>Agents and alerts in your zone</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Agents monitored</span>
+        <strong>{{ total_agents|default:'0' }}</strong>
+        <small>Active within your area</small>
+    </article>
+
+    <article class="stat-card danger">
+        <span>Area alerts</span>
+        <strong>{{ critical_alerts|default:'0' }}</strong>
+        <small>{{ high_alerts|default:'0' }} high severity</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Provider coverage</span>
+        <strong>{{ provider_count|default:'0' }}</strong>
+        <small>Active providers in your area</small>
+    </article>
+    {% elif current_role == "OPERATIONS" %}
+    <article class="stat-card">
+        <span>Assigned provider</span>
+        <strong>{{ assigned_provider_name|default:'All providers' }}</strong>
+        <small>Operations view</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Provider count</span>
+        <strong>{{ provider_count|default:'0' }}</strong>
+        <small>Providers under review</small>
+    </article>
+
+    <article class="stat-card danger">
+        <span>Critical cases</span>
+        <strong>{{ critical_alerts|default:'0' }}</strong>
+        <small>{{ high_alerts|default:'0' }} high severity</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Review alerts</span>
+        <strong>{{ review_alert_count|default:'0' }}</strong>
+        <small>Requires investigation</small>
+    </article>
+    {% elif current_role == "RISK_REVIEWER" %}
+    <article class="stat-card">
+        <span>Review queue</span>
+        <strong>{{ review_alert_count|default:'0' }}</strong>
+        <small>Unusual and data-quality alerts</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Providers monitored</span>
+        <strong>{{ provider_count|default:'0' }}</strong>
+        <small>Focus on your assigned provider</small>
+    </article>
+
+    <article class="stat-card danger">
+        <span>Risk alerts</span>
+        <strong>{{ critical_alerts|default:'0' }}</strong>
+        <small>{{ high_alerts|default:'0' }} high severity</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Providers</span>
+        <strong>{{ provider_count|default:'0' }}</strong>
+        <small>Provider data in review</small>
+    </article>
+    {% else %}
+    <article class="stat-card">
+        <span>Active agents</span>
+        <strong>{{ total_agents|default:'0' }}</strong>
+        <small>{{ provider_count|default:'0' }} providers</small>
+    </article>
+
+    <article class="stat-card">
+        <span>24h volume</span>
+        <strong>৳{{ total_volume|default:'0'|floatformat:0 }}</strong>
+        <small>{{ total_transactions|default:'0' }} transactions</small>
+    </article>
+
+    <article class="stat-card danger">
+        <span>Active alerts</span>
+        <strong>{{ critical_alerts|default:'0' }}</strong>
+        <small>{{ high_alerts|default:'0' }} high severity</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Providers</span>
+        <strong>{{ provider_count|default:'0' }}</strong>
+        <small>Provider data available</small>
+    </article>
+    {% endif %}
 </section>
 
 <div class="content-grid two-one">

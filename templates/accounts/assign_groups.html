@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Assign Groups & Permissions{% endblock %}
+{% block page_title %}Assign Groups & Permissions{% endblock %}
+{% block content %}
+<section class="panel narrow">
+    <div class="panel-head">
+        <h2>Assign groups and permissions</h2>
+        <p>Choose a user, assign one or more groups, and add direct permissions as needed.</p>
+    </div>
+
+    <form method="post" class="stack-form">
+        {% csrf_token %}
+
+        <label>User
+            <select name="user_id">
+                {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }} &ndash; {{ user.email }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <fieldset>
+            <legend>Groups</legend>
+            {{ form.groups }}
+        </fieldset>
+
+        <fieldset>
+            <legend>Direct permissions</legend>
+            {{ form.user_permissions }}
+        </fieldset>
+
+        <button class="btn btn-primary">Save assignment</button>
+    </form>
+</section>
+{% endblock %}

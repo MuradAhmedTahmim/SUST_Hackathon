@@ -1,11 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth import login, get_user_model
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.conf import settings
 from django.shortcuts import redirect, render
 
-from .forms import UserForm, UserProfileForm, UserRegisterForm
+from .forms import (
+    UserForm,
+    UserManagementForm,
+    UserProfileForm,
+    UserRegisterForm,
+)
 from .models import OTPRecord, UserProfile
 
 User = get_user_model()
@@ -65,6 +71,36 @@ def profile_edit_view(request):
         request,
         "accounts/profile_edit.html",
         {"user_form": user_form, "profile_form": profile_form},
+    )
+
+
+@login_required
+def assign_groups_view(request):
+    if not request.user.is_staff:
+        messages.error(request, "You do not have permission to assign groups.")
+        return redirect("dashboard:home")
+
+    if request.method == "POST":
+        user_id = request.POST.get("user_id")
+        try:
+            target_user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            messages.error(request, "The selected user does not exist.")
+            return redirect("accounts:assign_groups")
+
+        form = UserManagementForm(request.POST, instance=target_user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Permissions updated for {target_user.username}.")
+            return redirect("accounts:assign_groups")
+    else:
+        form = UserManagementForm()
+
+    users = User.objects.order_by("username")
+    return render(
+        request,
+        "accounts/assign_groups.html",
+        {"form": form, "users": users},
     )
 
 

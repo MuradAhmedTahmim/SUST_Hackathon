@@ -27,7 +27,12 @@ urlpatterns = [
         views.register_view,
         name="register",
     ),
-       path(
+    path(
+        "assign-groups/",
+        views.assign_groups_view,
+        name="assign_groups",
+    ),
+    path(
         "forgot-password/",
         views.forgot_password_otp,
         name="forgot_password_otp",

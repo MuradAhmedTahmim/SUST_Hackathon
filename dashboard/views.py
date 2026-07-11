@@ -127,8 +127,9 @@ def dashboard_home(request):
     elif role == "RISK_REVIEWER":
         active_alerts_queryset = active_alerts_queryset.filter(
             alert_type__in=[
-                "ANOMALY",
-                "UNUSUAL_ACTIVITY",
+                "LIQUIDITY_PRESSURE",
+                "VELOCITY_ANOMALY",
+                "REPEATED_AMOUNT",
                 "DATA_QUALITY",
             ]
         )
@@ -195,6 +196,26 @@ def dashboard_home(request):
         "RISK_REVIEWER": "Review unusual activity and data-quality alerts.",
     }
 
+    assigned_agent_name = None
+    assigned_area_name = None
+    assigned_provider_name = None
+
+    if profile:
+        if profile.assigned_agent:
+            assigned_agent_name = profile.assigned_agent.outlet_name
+        if profile.assigned_area:
+            assigned_area_name = profile.assigned_area.name
+        if profile.assigned_provider:
+            assigned_provider_name = profile.assigned_provider.name
+
+    review_alert_count = active_alerts_queryset.filter(
+        alert_type__in=[
+            "VELOCITY_ANOMALY",
+            "REPEATED_AMOUNT",
+            "DATA_QUALITY",
+        ]
+    ).count()
+
     context = {
         "agents": agents_queryset[:10],
         "active_alerts": active_alerts_queryset[:8],
@@ -227,6 +248,10 @@ def dashboard_home(request):
         ),
         "current_role": role,
         "assignment_missing": assignment_missing,
+        "assigned_agent_name": assigned_agent_name,
+        "assigned_area_name": assigned_area_name,
+        "assigned_provider_name": assigned_provider_name,
+        "review_alert_count": review_alert_count,
     }
 
     return render(
