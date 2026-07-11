@@ -9,6 +9,7 @@ class UserProfileAdmin(admin.ModelAdmin):
         "user",
         "role",
         "phone",
+        "assigned_agent",
         "assigned_provider",
         "assigned_area",
         "preferred_language",
@@ -16,11 +17,12 @@ class UserProfileAdmin(admin.ModelAdmin):
     )
 
     list_filter = (
-        "role",
-        "preferred_language",
-        "receive_critical_alerts",
-        "assigned_provider",
-        "assigned_area",
+    "role",
+    "preferred_language",
+    "receive_critical_alerts",
+    "assigned_agent",
+    "assigned_provider",
+    "assigned_area",
     )
 
     search_fields = (

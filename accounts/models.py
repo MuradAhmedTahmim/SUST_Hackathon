@@ -51,6 +51,13 @@ class UserProfile(models.Model):
         blank=True,
         related_name="assigned_user_profiles",
     )
+    assigned_agent = models.OneToOneField(
+    "agents.Agent",
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="assigned_user_profile",
+    )
 
     preferred_language = models.CharField(
         max_length=5,

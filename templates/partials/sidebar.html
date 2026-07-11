@@ -1,1 +1,91 @@
-<aside class="sidebar" id="sidebar"><a class="brand" href="{% url 'dashboard:home' %}"><span class="brand-mark">AP</span><span><strong>AgentPulse</strong><small>Liquidity Intelligence</small></span></a><nav class="side-nav"><a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:home' %}">⌂ <span>Dashboard</span></a><a class="nav-link {% if request.resolver_match.app_name == 'agents' %}active{% endif %}" href="{% url 'agents:agent_list' %}">◎ <span>Agents</span></a><a class="nav-link {% if request.resolver_match.app_name == 'transactions' %}active{% endif %}" href="{% url 'transactions:transaction_list' %}">↔ <span>Transactions</span></a><a class="nav-link {% if request.resolver_match.app_name == 'alerts' %}active{% endif %}" href="{% url 'alerts:alert_list' %}">⚠ <span>Alerts</span></a><div class="nav-label">Analytics</div><a class="nav-link" href="{% url 'analytics:forecast_dashboard' %}">◴ <span>Forecasts</span></a><a class="nav-link" href="{% url 'analytics:anomaly_review' %}">◇ <span>Anomaly Review</span></a><a class="nav-link" href="{% url 'analytics:metrics_dashboard' %}">▥ <span>Metrics</span></a><a class="nav-link" href="{% url 'analytics:data_quality' %}">✓ <span>Data Quality</span></a></nav><div class="sidebar-bottom"><div class="system-pill"><i></i><span><strong>System online</strong><small>Simulation environment</small></span></div></div></aside>
+<aside class="sidebar" id="sidebar">
+    <a class="brand" href="{% url 'dashboard:home' %}">
+        <span class="brand-mark">AP</span>
+        <span>
+            <strong>AgentPulse</strong>
+            <small>Liquidity Intelligence</small>
+        </span>
+    </a>
+
+    <nav class="side-nav">
+        <a
+            class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}"
+            href="{% url 'dashboard:home' %}"
+        >
+            ⌂ <span>Dashboard</span>
+        </a>
+
+        {% with role=request.user.profile.role %}
+
+            {% if role == "ADMIN" or role == "OPERATIONS" or role == "FIELD_OFFICER" %}
+                <a
+                    class="nav-link {% if request.resolver_match.app_name == 'agents' %}active{% endif %}"
+                    href="{% url 'agents:agent_list' %}"
+                >
+                    ◎ <span>Agents</span>
+                </a>
+            {% endif %}
+
+            {% if role == "ADMIN" or role == "OPERATIONS" or role == "FIELD_OFFICER" or role == "AGENT" %}
+                <a
+                    class="nav-link {% if request.resolver_match.app_name == 'transactions' %}active{% endif %}"
+                    href="{% url 'transactions:transaction_list' %}"
+                >
+                    ↔ <span>Transactions</span>
+                </a>
+            {% endif %}
+
+            <a
+                class="nav-link {% if request.resolver_match.app_name == 'alerts' %}active{% endif %}"
+                href="{% url 'alerts:alert_list' %}"
+            >
+                ⚠ <span>Alerts</span>
+            </a>
+
+            {% if role == "ADMIN" or role == "OPERATIONS" or role == "RISK_REVIEWER" %}
+                <div class="nav-label">Analytics</div>
+
+                {% if role == "ADMIN" or role == "OPERATIONS" %}
+                    <a
+                        class="nav-link"
+                        href="{% url 'analytics:forecast_dashboard' %}"
+                    >
+                        ◴ <span>Forecasts</span>
+                    </a>
+                {% endif %}
+
+                <a
+                    class="nav-link"
+                    href="{% url 'analytics:anomaly_review' %}"
+                >
+                    ◇ <span>Anomaly Review</span>
+                </a>
+
+                <a
+                    class="nav-link"
+                    href="{% url 'analytics:metrics_dashboard' %}"
+                >
+                    ▥ <span>Metrics</span>
+                </a>
+
+                <a
+                    class="nav-link"
+                    href="{% url 'analytics:data_quality' %}"
+                >
+                    ✓ <span>Data Quality</span>
+                </a>
+            {% endif %}
+
+        {% endwith %}
+    </nav>
+
+    <div class="sidebar-bottom">
+        <div class="system-pill">
+            <i></i>
+            <span>
+                <strong>System online</strong>
+                <small>Simulation environment</small>
+            </span>
+        </div>
+    </div>
+</aside>
