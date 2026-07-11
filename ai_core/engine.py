@@ -11,6 +11,8 @@ from analytics.forecasting import forecast_liquidity
 from analytics.models import LiquidityForecast
 from transactions.models import Transaction
 
+from .local_model import local_forecast_model
+
 
 def analyse_agent_provider(agent, provider):
     balance_record = agent.provider_balances.filter(
@@ -71,6 +73,19 @@ def analyse_agent_provider(agent, provider):
 
     shortage_probability = forecast_result.shortage_probability
     confidence = forecast_result.confidence
+
+    if local_forecast_model.is_ready():
+        model_features = [
+            float(balance_record.current_balance),
+            float(cash_in),
+            float(cash_out),
+            float(transactions.count()),
+            float(balance_record.safety_threshold),
+        ]
+        model_probability = local_forecast_model.predict_probability(model_features)
+        if model_probability is not None:
+            shortage_probability = round(model_probability, 4)
+            confidence = round(min(max(model_probability * 0.95, 0.2), 0.99), 4)
 
     explanation = (
         f"Current balance is {balance_record.current_balance}. "

@@ -8,7 +8,7 @@ from django.utils import timezone
 from agents.models import Agent, AgentProviderBalance, Provider
 from alerts.models import Alert
 from transactions.models import Transaction
-
+from django.contrib.auth.decorators import login_required
 
 @login_required
 def dashboard_home(request):

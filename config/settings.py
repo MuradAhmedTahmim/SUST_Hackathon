@@ -149,3 +149,4 @@ EMAIL_HOST_USER = "badhandas715@gmail.com"
 EMAIL_HOST_PASSWORD = "gwsxarqzbkxxhokw"
 
 DEFAULT_FROM_EMAIL = "AgentPulse <badhandas715@gmail.com>"
+
