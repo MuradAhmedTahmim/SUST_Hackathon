@@ -1,0 +1,18 @@
+AGENTPULSE FRONTEND INSTALLATION
+
+1. The templates/ and static/ folders are already placed in the correct project root.
+2. The authentication redirect settings were added to config/settings.py.
+3. Run:
+   python manage.py check
+   python manage.py runserver
+4. Open http://127.0.0.1:8000/
+5. Sign in using a Django user. Create one if needed:
+   python manage.py createsuperuser
+
+BACKEND FIXES INCLUDED
+- dashboard/views.py: corrected the reverse relation used for provider balance totals.
+- agents/views.py: removed a filter for the nonexistent Area.is_active field.
+- analytics/views.py: removed references to nonexistent Transaction.anomaly_score and AlertEvidence.evidence_type fields.
+
+PLACEHOLDER TEMPLATES
+The agent create/edit/delete, transaction detail/create/edit/delete, and profile-edit templates are included, but they are not linked because your current backend has no views or URLs for those actions.

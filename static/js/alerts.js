@@ -1,0 +1,1 @@
+document.addEventListener("DOMContentLoaded",()=>{const input=document.getElementById("alertSearch");input?.addEventListener("input",()=>{const q=input.value.toLowerCase();document.querySelectorAll("[data-alert-text]").forEach(row=>row.hidden=!row.dataset.alertText.toLowerCase().includes(q));});});

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Transaction Details | AgentPulse AI{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/transactions.css' %}">
+{% endblock %}
+{% block page_title %}Transaction Details{% endblock %}
+{% block content %}
+<div class="detail-header panel">
+    <div class="identity">
+        <div>
+            <p class="eyebrow">Transaction Reference</p>
+            <h2>{{ transaction.transaction_reference }}</h2>
+        </div>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <a class="btn btn-light" href="{% url 'transactions:transaction_list' %}">← Back to list</a>
+        <a class="btn btn-light" href="{% url 'transactions:transaction_edit' transaction.id %}">Edit Transaction</a>
+        <a class="btn" href="{% url 'transactions:transaction_delete' transaction.id %}" style="background-color: var(--color-danger, #ef4444); color: white;">Delete Transaction</a>
+    </div>
+</div>
+
+<section class="panel">
+    <div class="panel-head">
+        <h3>Details</h3>
+    </div>
+    <dl class="meta-list large">
+        <div>
+            <dt>Agent</dt>
+            <dd><a class="text-link" href="{% url 'agents:agent_detail' transaction.agent.id %}" style="font-weight: 600;">{{ transaction.agent.outlet_name }} ({{ transaction.agent.agent_code }})</a></dd>
+        </div>
+        <div>
+            <dt>Provider</dt>
+            <dd>{{ transaction.provider.name }}</dd>
+        </div>
+        <div>
+            <dt>Type</dt>
+            <dd><span class="badge neutral">{{ transaction.get_transaction_type_display }}</span></dd>
+        </div>
+        <div>
+            <dt>Amount</dt>
+            <dd><strong>৳{{ transaction.amount|floatformat:2 }}</strong></dd>
+        </div>
+        <div>
+            <dt>Status</dt>
+            <dd><span class="badge {{ transaction.status|lower }}">{{ transaction.get_status_display }}</span></dd>
+        </div>
+        <div>
+            <dt>Time</dt>
+            <dd>{{ transaction.occurred_at|date:'d M Y, H:i' }}</dd>
+        </div>
+        <div>
+            <dt>Customer ID</dt>
+            <dd>{{ transaction.synthetic_customer_id|default:'—' }}</dd>
+        </div>
+        <div>
+            <dt>Anomaly Detected?</dt>
+            <dd>
+                {% if transaction.is_injected_anomaly %}
+                    <span class="badge critical">YES (Anomalous)</span>
+                {% else %}
+                    <span class="badge success">NO (Normal)</span>
+                {% endif %}
+            </dd>
+        </div>
+    </dl>
+</section>
+{% endblock %}
