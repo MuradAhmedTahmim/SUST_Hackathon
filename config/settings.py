@@ -35,7 +35,7 @@ ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
         "ALLOWED_HOSTS",
-        "127.0.0.1,localhost,sust-hackathon-11.onrender.com",
+        "127.0.0.1,localhost,sust-hackathon-12.onrender.com",
     ).split(",")
     if host.strip()
 ]
@@ -44,10 +44,19 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CSRF_TRUSTED_ORIGINS",
-        "https://sust-hackathon-11.onrender.com",
+        "https://sust-hackathon-12.onrender.com",
     ).split(",")
     if origin.strip()
 ]
+
+# Render provides the current service hostname at runtime; always trust it.
+render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if render_hostname and render_hostname not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_hostname)
+
+render_origin = f"https://{render_hostname}" if render_hostname else ""
+if render_origin and render_origin not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(render_origin)
 # Application definition
 
 INSTALLED_APPS = [
