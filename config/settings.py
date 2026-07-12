@@ -34,6 +34,7 @@ SECRET_KEY = os.getenv(
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
+          ".vercel.app",
         "ALLOWED_HOSTS",
         "127.0.0.1,localhost,sust-hackathon-13.onrender.com",
     ).split(",")
