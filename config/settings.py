@@ -34,9 +34,8 @@ SECRET_KEY = os.getenv(
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
-          ".vercel.app",
         "ALLOWED_HOSTS",
-        "127.0.0.1,localhost,sust-hackathon-14.onrender.com",
+        "127.0.0.1,localhost,sust-hackathon-15.onrender.com,.vercel.app",
     ).split(",")
     if host.strip()
 ]
@@ -45,7 +44,7 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CSRF_TRUSTED_ORIGINS",
-        "https://sust-hackathon-14.onrender.com",
+        "https://sust-hackathon-15.onrender.com",
     ).split(",")
     if origin.strip()
 ]
